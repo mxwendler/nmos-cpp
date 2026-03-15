@@ -17,55 +17,38 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04, windows-2019]
+        os: [ubuntu-22.04, ubuntu-24.04, windows-2022]
         install_mdns: [false, true]
         use_conan: [true]
-        force_cpprest_asio: [false]
+        force_cpprest_asio: [false, true]
         dns_sd_mode: [multicast, unicast]
         enable_authorization: [false, true]
         exclude:
           # install_mdns is only meaningful on Linux
-          - os: windows-2019
-            enable_authorization: false
-          - os: ubuntu-20.04
-            enable_authorization: false
-          - os: windows-2019
+          - os: windows-2022
             install_mdns: true
           # for now, unicast DNS-SD tests are only implemented on Linux
-          - os: windows-2019
+          - os: windows-2022
             dns_sd_mode: unicast
+          - os: ubuntu-22.04
+            enable_authorization: false
+          # don't force ASIO for ubuntu platforms
+          - os: ubuntu-22.04
+            force_cpprest_asio: true
           # for now, exclude unicast DNS-SD with mDNSResponder due to
           # intermittent *** buffer overflow detected *** in mdnsd
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             install_mdns: true
             dns_sd_mode: unicast
             enable_authorization: true
-        include:
-          - os: windows-2022
-            install_mdns: false
-            use_conan: true
+          - os: ubuntu-24.04
+            install_mdns: true
+          - os: ubuntu-24.04
+            dns_sd_mode: unicast
+            # don't force ASIO for ubuntu platforms
+          - os: ubuntu-24.04
             force_cpprest_asio: true
-            dns_sd_mode: multicast
-            enable_authorization: true
-          - os: windows-2022
-            install_mdns: false
-            use_conan: true
-            force_cpprest_asio: true
-            dns_sd_mode: multicast
-            enable_authorization: false
-          - os: ubuntu-22.04
-            install_mdns: false
-            use_conan: true
-            force_cpprest_asio: false
-            dns_sd_mode: multicast
-            enable_authorization: true
-          - os: ubuntu-22.04
-            install_mdns: false
-            use_conan: true
-            force_cpprest_asio: false
-            dns_sd_mode: multicast
-            enable_authorization: false
-
+          
     steps:
     - uses: actions/checkout@v3
 
@@ -95,9 +78,9 @@ jobs:
         echo "RUNNER_WORKSPACE=${{ runner.workspace }}" >> $GITHUB_ENV
 
     - name: install python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v6
       with:
-        python-version: 3.8
+        python-version: 3.12
 
     - name: install pip
       run: |
@@ -108,7 +91,7 @@ jobs:
   make_badges:
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     needs: [build_and_test]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
 
@@ -120,7 +103,7 @@ jobs:
         echo "GITHUB_WORKSPACE=${{ github.workspace }}" >> $GITHUB_ENV
         echo "RUNNER_WORKSPACE=${{ runner.workspace }}" >> $GITHUB_ENV
 
-    - uses: actions/download-artifact@v3.0.2
+    - uses: actions/download-artifact@v4
       with:
         path: ${{ runner.workspace }}/artifacts
 

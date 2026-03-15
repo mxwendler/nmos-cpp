@@ -6,7 +6,7 @@ set(BOOST_VERSION_CUR "1.83.0")
 # note: some components are only required for one platform or other
 # so find_package(Boost) is called after adding those components
 # adding the "headers" component seems to be unnecessary (and the target alias "boost" doesn't work at all)
-list(APPEND FIND_BOOST_COMPONENTS system date_time regex)
+list(APPEND FIND_BOOST_COMPONENTS system date_time regex chrono)
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" OR ${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
     if(NOT (CMAKE_CXX_COMPILER_ID MATCHES GNU AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 5.3))
         # add filesystem (for bst/filesystem.h, used by nmos/filesystem_route.cpp)
@@ -479,34 +479,11 @@ if(NOT NMOS_CPP_USE_SUPPLIED_JWT_CPP)
     target_link_libraries(jwt-cpp INTERFACE jwt-cpp::jwt-cpp)
 else()
     message(STATUS "Using sources at third_party/jwt-cpp instead of external \"jwt-cpp\" package.")
-
-    set(JWT_SOURCES
-        )
-
-    set(JWT_HEADERS
-        third_party/jwt-cpp/base.h
-        third_party/jwt-cpp/jwt.h
-        third_party/jwt-cpp/traits/nlohmann-json/defaults.h
-        third_party/jwt-cpp/traits/nlohmann-json/traits.h
-        )
-
-    # hm, header-only so should be INTERFACE library?
-    add_library(
-        jwt-cpp STATIC
-        ${JWT_SOURCES}
-        ${JWT_HEADERS}
-        )
-
-    source_group("Source Files" FILES ${JWT_SOURCES})
-    source_group("Header Files" FILES ${JWT_HEADERS})
-
-    target_link_libraries(
-        jwt-cpp PRIVATE
-        nmos-cpp::compile-settings
-        )
-    target_include_directories(jwt-cpp PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-        $<INSTALL_INTERFACE:${NMOS_CPP_INSTALL_INCLUDEDIR}>
+    
+    add_library(jwt-cpp INTERFACE)
+	target_include_directories(jwt-cpp INTERFACE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third_party>
+        $<INSTALL_INTERFACE:${NMOS_CPP_INSTALL_INCLUDEDIR}/third_party>
         )
 endif()
 
