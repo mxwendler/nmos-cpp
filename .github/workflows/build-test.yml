@@ -17,55 +17,38 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04, windows-2019]
+        os: [ubuntu-22.04, ubuntu-24.04, windows-2022]
         install_mdns: [false, true]
         use_conan: [true]
-        force_cpprest_asio: [false]
+        force_cpprest_asio: [false, true]
         dns_sd_mode: [multicast, unicast]
         enable_authorization: [false, true]
         exclude:
           # install_mdns is only meaningful on Linux
-          - os: windows-2019
-            enable_authorization: false
-          - os: ubuntu-20.04
-            enable_authorization: false
-          - os: windows-2019
+          - os: windows-2022
             install_mdns: true
           # for now, unicast DNS-SD tests are only implemented on Linux
-          - os: windows-2019
+          - os: windows-2022
             dns_sd_mode: unicast
+          - os: ubuntu-22.04
+            enable_authorization: false
+          # don't force ASIO for ubuntu platforms
+          - os: ubuntu-22.04
+            force_cpprest_asio: true
           # for now, exclude unicast DNS-SD with mDNSResponder due to
           # intermittent *** buffer overflow detected *** in mdnsd
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             install_mdns: true
             dns_sd_mode: unicast
             enable_authorization: true
-        include:
-          - os: windows-2022
-            install_mdns: false
-            use_conan: true
+          - os: ubuntu-24.04
+            install_mdns: true
+          - os: ubuntu-24.04
+            dns_sd_mode: unicast
+            # don't force ASIO for ubuntu platforms
+          - os: ubuntu-24.04
             force_cpprest_asio: true
-            dns_sd_mode: multicast
-            enable_authorization: true
-          - os: windows-2022
-            install_mdns: false
-            use_conan: true
-            force_cpprest_asio: true
-            dns_sd_mode: multicast
-            enable_authorization: false
-          - os: ubuntu-22.04
-            install_mdns: false
-            use_conan: true
-            force_cpprest_asio: false
-            dns_sd_mode: multicast
-            enable_authorization: true
-          - os: ubuntu-22.04
-            install_mdns: false
-            use_conan: true
-            force_cpprest_asio: false
-            dns_sd_mode: multicast
-            enable_authorization: false
-
+          
     steps:
     - uses: actions/checkout@v3
 
@@ -95,9 +78,9 @@ jobs:
         echo "RUNNER_WORKSPACE=${{ runner.workspace }}" >> $GITHUB_ENV
 
     - name: install python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v6
       with:
-        python-version: 3.8
+        python-version: 3.12
 
     - name: install pip
       run: |
@@ -109,13 +92,14 @@ jobs:
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       run: |
         mkdir -p gdrive
-        echo "${{ env.SECRET_GOOGLE_CREDENTIALS }}" | openssl base64 -d -A -out gdrive/credentials.json
+        echo "${{ env.SECRET_GOOGLE_CREDENTIALS }}"  > secret.b64
+        openssl base64 -d -A -in secret.b64 -out gdrive/credentials.json
         echo "GDRIVE_CREDENTIALS=`pwd`/gdrive/credentials.json" >> $GITHUB_ENV
 
     - name: install conan
       if: matrix.use_conan == true
       run: |
-        pip install conan~=2.4.1
+        pip install conan~=2.20
 
     - name: 'ubuntu-14.04: install cmake'
       if: matrix.os == 'ubuntu-14.04'
@@ -406,6 +390,10 @@ jobs:
           printf 'CONFIG.ENABLE_AUTH = False\n' >> nmostesting/UserConfig.py
         fi
 
+        # Set config for control protocol testing
+        printf 'CONFIG.MS05_INVASIVE_TESTING = True\n' >> nmostesting/UserConfig.py
+        printf 'CONFIG.MAX_TEST_ITERATIONS = 2\n' >> nmostesting/UserConfig.py
+
         # Download testssl
         cd testssl
         curl -L https://github.com/drwetter/testssl.sh/archive/v3.0.7.tar.gz -s | tar -xvzf - --strip-components=1 > /dev/null
@@ -580,12 +568,12 @@ jobs:
         export SHEET=https://docs.google.com/spreadsheets/d/${{ env.SECRET_RESULTS_SHEET_ID }}
         python nmos-testing/utilities/run-test-suites/gsheetsImport/resultsImporter.py --credentials ${{ env.GDRIVE_CREDENTIALS }} --sheet "$SHEET" --insert --json nmos-testing/results/${{ env.GITHUB_COMMIT }}-*.json || echo "upload failed"
 
-    - uses: actions/upload-artifact@v3.0.0
+    - uses: actions/upload-artifact@v4
       with:
         name: ${{ env.BUILD_NAME }}_badges
         path: ${{ runner.workspace }}/nmos-testing/badges
 
-    - uses: actions/upload-artifact@v3.0.0
+    - uses: actions/upload-artifact@v4
       with:
         name: ${{ env.BUILD_NAME }}_results
         path: ${{ runner.workspace }}/nmos-testing/results
@@ -594,7 +582,7 @@ jobs:
   make_badges:
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     needs: [build_and_test]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
 
@@ -606,7 +594,7 @@ jobs:
         echo "GITHUB_WORKSPACE=${{ github.workspace }}" >> $GITHUB_ENV
         echo "RUNNER_WORKSPACE=${{ runner.workspace }}" >> $GITHUB_ENV
 
-    - uses: actions/download-artifact@v3.0.2
+    - uses: actions/download-artifact@v4
       with:
         path: ${{ runner.workspace }}/artifacts
 

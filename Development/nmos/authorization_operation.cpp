@@ -1271,10 +1271,8 @@ namespace nmos
 
                             authorization_service_error = true;
                         }
-                    });
-                    request.then([&]
-                    {
-                        condition.notify_all();
+
+                        model.notify();
                     });
 
                     // wait for the request because interactions with the Authorization API endpoint must be sequential
@@ -1646,7 +1644,7 @@ namespace nmos
                     if (authorization_code_flow_max > -1)
                     {
                         // wait for access token with timeout
-                        if (!model.wait_for(lock, std::chrono::seconds(authorization_code_flow_max), [&] {
+                        if (!model.wait_for(lock, bst::chrono::seconds(authorization_code_flow_max), [&] {
                             authorization_flow = with_read_lock(authorization_state.mutex, [&] { return authorization_state.authorization_flow; });
                             return shutdown || nmos::experimental::authorization_state::failed == authorization_flow || nmos::experimental::authorization_state::access_token_received == authorization_flow; }))
                         {
@@ -1853,10 +1851,8 @@ namespace nmos
 
                         authorization_service_error = true;
                     }
-                });
-                request.then([&]
-                {
-                    condition.notify_all();
+
+                    model.notify();
                 });
 
                 // wait for the request because interactions with the Authorization API endpoint must be sequential
@@ -1998,10 +1994,8 @@ namespace nmos
 
                         authorization_service_error = true;
                     }
-                });
-                request.then([&]
-                {
-                    condition.notify_all();
+
+                    model.notify();
                 });
 
                 // wait for the request because interactions with the Authorization API endpoint must be sequential
